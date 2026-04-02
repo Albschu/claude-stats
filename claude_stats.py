@@ -1,3 +1,4 @@
+import argparse
 import json
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -250,3 +251,24 @@ def render_detailed(projects: dict, daily: dict, skipped: int) -> str:
         lines.append(f"\n  ({skipped} messages skipped — no usage data)")
 
     return "\n".join(lines)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Claude Code usage stats")
+    parser.add_argument("--detailed", action="store_true", help="Show full per-project breakdown")
+    parser.add_argument("--days", type=int, default=None, help="Limit to last N days")
+    args = parser.parse_args()
+
+    claude_dir = Path.home() / ".claude"
+    days = args.days if args.days is not None else (None if args.detailed else 30)
+
+    projects, daily, skipped = aggregate_data(claude_dir, days=days)
+
+    if args.detailed:
+        print(render_detailed(projects, daily, skipped))
+    else:
+        print(render_summary(projects, daily, skipped, days=days or 30))
+
+
+if __name__ == "__main__":
+    main()
