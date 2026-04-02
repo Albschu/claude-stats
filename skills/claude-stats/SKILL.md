@@ -1,6 +1,7 @@
 ---
 name: claude-stats
-description: Show Claude Code token usage and estimated API cost broken down by project and timeline. Handles /claude-stats and /claude-stats detailed.
+description: Show Claude Code token usage and estimated API cost broken down by project and timeline.
+version: 1.0.0
 ---
 
 Run the following command and display the output **verbatim** — do not summarize, reformat, or add commentary unless the command fails.

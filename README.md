@@ -6,7 +6,7 @@ A Claude Code skill that shows your token usage and estimated API cost, broken d
 
 ```bash
 git clone https://github.com/Albschu/claude-stats.git ~/.claude/plugins/claude-stats
-ln -sf ~/.claude/plugins/claude-stats/commands/claude-stats.md ~/.claude/commands/claude-stats.md
+ln -sf ~/.claude/plugins/claude-stats/skills/claude-stats/SKILL.md ~/.claude/commands/claude-stats.md
 ```
 
 Restart Claude Code after installing.
