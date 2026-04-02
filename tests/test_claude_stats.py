@@ -273,3 +273,29 @@ def test_render_summary_no_skipped_note_when_zero():
     daily = _make_daily(["2026-04-01"])
     output = render_summary(projects, daily, skipped=0, days=30)
     assert "skipped" not in output
+
+
+from claude_stats import render_detailed
+
+def test_render_detailed_shows_all_projects():
+    projects = _make_projects("alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta")
+    daily = _make_daily(["2026-04-01"])
+    output = render_detailed(projects, daily, skipped=0)
+    for name in ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta"]:
+        assert name in output
+
+def test_render_detailed_has_column_headers():
+    projects = _make_projects("alpha")
+    daily = _make_daily(["2026-04-01"])
+    output = render_detailed(projects, daily, skipped=0)
+    assert "Input" in output
+    assert "Output" in output
+    assert "Cache" in output
+    assert "Total" in output
+    assert "Cost" in output
+
+def test_render_detailed_shows_skipped_note():
+    projects = _make_projects("a")
+    daily = _make_daily(["2026-04-01"])
+    output = render_detailed(projects, daily, skipped=3)
+    assert "3 messages skipped" in output

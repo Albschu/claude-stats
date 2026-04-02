@@ -207,3 +207,46 @@ def render_summary(projects: dict, daily: dict, skipped: int, days: int = 30) ->
         lines.append(f"\n  ({skipped} messages skipped — no usage data)")
 
     return "\n".join(lines)
+
+
+def render_detailed(projects: dict, daily: dict, skipped: int) -> str:
+    lines = []
+    lines.append("━" * 74)
+    lines.append("  Claude Code Usage  ·  Detailed")
+    lines.append("━" * 74)
+    lines.append("")
+
+    col_w = 24
+    sorted_projects = sorted(projects.values(), key=calc_cost, reverse=True)
+
+    lines.append(
+        f"  {'Project':<{col_w}} {'Input':>8} {'Output':>8} {'Cache':>8} {'Total':>8} {'Cost':>7}"
+    )
+    lines.append(f"  {'─' * col_w} {'─' * 8} {'─' * 8} {'─' * 8} {'─' * 8} {'─' * 7}")
+
+    for p in sorted_projects:
+        cache = p["cache_creation"] + p["cache_read"]
+        tok = total_tokens(p)
+        cost = calc_cost(p)
+        name = p["short_name"] or p["full_path"] or "(unknown)"
+        lines.append(
+            f"  {name:<{col_w}} {fmt_tokens(p['input']):>8} {fmt_tokens(p['output']):>8} "
+            f"{fmt_tokens(cache):>8} {fmt_tokens(tok):>8} {fmt_cost(cost):>7}"
+        )
+
+    lines.append(f"  {'─' * col_w} {'─' * 8} {'─' * 8} {'─' * 8} {'─' * 8} {'─' * 7}")
+
+    all_input = sum(p["input"] for p in sorted_projects)
+    all_output = sum(p["output"] for p in sorted_projects)
+    all_cache = sum(p["cache_creation"] + p["cache_read"] for p in sorted_projects)
+    all_tok = sum(total_tokens(p) for p in sorted_projects)
+    all_cost = sum(calc_cost(p) for p in sorted_projects)
+    lines.append(
+        f"  {'Total':<{col_w}} {fmt_tokens(all_input):>8} {fmt_tokens(all_output):>8} "
+        f"{fmt_tokens(all_cache):>8} {fmt_tokens(all_tok):>8} {fmt_cost(all_cost):>7}"
+    )
+
+    if skipped:
+        lines.append(f"\n  ({skipped} messages skipped — no usage data)")
+
+    return "\n".join(lines)
