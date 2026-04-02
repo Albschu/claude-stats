@@ -152,3 +152,58 @@ def aggregate_data(
     # Filter out projects with zero tokens
     projects = {k: v for k, v in projects.items() if total_tokens(v) > 0}
     return dict(projects), dict(daily), total_skipped
+
+
+def render_summary(projects: dict, daily: dict, skipped: int, days: int = 30) -> str:
+    lines = []
+    lines.append("━" * 52)
+    lines.append(f"  Claude Code Usage  ·  last {days} days")
+    lines.append("━" * 52)
+    lines.append("")
+
+    # Timeline
+    lines.append("  Daily Activity")
+    if daily:
+        sorted_days = sorted(daily.keys())[-days:]
+        max_tok = max(total_tokens(daily[d]) for d in sorted_days) or 1
+        bar_width = 20
+        for d in sorted_days:
+            tok = total_tokens(daily[d])
+            bars = round(tok / max_tok * bar_width)
+            bar = "█" * bars + "░" * (bar_width - bars)
+            lines.append(f"  {d}  {bar}  {fmt_tokens(tok)}")
+    else:
+        lines.append("  (no data)")
+    lines.append("")
+
+    # Top projects
+    lines.append("  Top Projects")
+    col_w = 24
+    sorted_projects = sorted(projects.values(), key=calc_cost, reverse=True)
+    top5 = sorted_projects[:5]
+    others = sorted_projects[5:]
+
+    lines.append(f"  {'Project':<{col_w}} {'Tokens':>8}  {'Cost':>7}")
+    lines.append(f"  {'─' * col_w} {'─' * 8}  {'─' * 7}")
+
+    for p in top5:
+        tok = total_tokens(p)
+        cost = calc_cost(p)
+        name = p["short_name"] or p["full_path"] or "(unknown)"
+        lines.append(f"  {name:<{col_w}} {fmt_tokens(tok):>8}  {fmt_cost(cost):>7}")
+
+    if others:
+        other_tok = sum(total_tokens(p) for p in others)
+        other_cost = sum(calc_cost(p) for p in others)
+        label = f"··· {len(others)} others"
+        lines.append(f"  {label:<{col_w}} {fmt_tokens(other_tok):>8}  {fmt_cost(other_cost):>7}")
+
+    lines.append(f"  {'─' * col_w} {'─' * 8}  {'─' * 7}")
+    all_tok = sum(total_tokens(p) for p in sorted_projects)
+    all_cost = sum(calc_cost(p) for p in sorted_projects)
+    lines.append(f"  {'Total':<{col_w}} {fmt_tokens(all_tok):>8}  {fmt_cost(all_cost):>7}")
+
+    if skipped:
+        lines.append(f"\n  ({skipped} messages skipped — no usage data)")
+
+    return "\n".join(lines)

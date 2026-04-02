@@ -214,3 +214,62 @@ def test_aggregate_empty_dir(tmp_path):
     assert projects == {}
     assert daily == {}
     assert skipped == 0
+
+
+from claude_stats import render_summary
+
+def _make_projects(*names):
+    """Helper: build a projects dict with synthetic data."""
+    projects = {}
+    for i, name in enumerate(names):
+        projects[f"dir-{name}"] = {
+            "input": (i + 1) * 100_000,
+            "output": (i + 1) * 20_000,
+            "cache_creation": 0,
+            "cache_read": 0,
+            "full_path": f"GitHub/{name}",
+            "short_name": name,
+        }
+    return projects
+
+def _make_daily(dates):
+    """Helper: build a daily dict with 100K tokens each day."""
+    return {d: {"input": 80_000, "output": 20_000, "cache_creation": 0, "cache_read": 0} for d in dates}
+
+def test_render_summary_contains_project_names():
+    projects = _make_projects("alpha", "beta")
+    daily = _make_daily(["2026-04-01", "2026-04-02"])
+    output = render_summary(projects, daily, skipped=0, days=30)
+    assert "alpha" in output
+    assert "beta" in output
+
+def test_render_summary_contains_cost():
+    projects = _make_projects("alpha")
+    daily = _make_daily(["2026-04-01"])
+    output = render_summary(projects, daily, skipped=0, days=30)
+    assert "$" in output
+
+def test_render_summary_collapses_others():
+    # 7 projects — top 5 shown, 2 collapsed
+    projects = _make_projects("a", "b", "c", "d", "e", "f", "g")
+    daily = _make_daily(["2026-04-01"])
+    output = render_summary(projects, daily, skipped=0, days=30)
+    assert "others" in output
+
+def test_render_summary_no_others_when_five_or_fewer():
+    projects = _make_projects("a", "b", "c")
+    daily = _make_daily(["2026-04-01"])
+    output = render_summary(projects, daily, skipped=0, days=30)
+    assert "others" not in output
+
+def test_render_summary_shows_skipped_note():
+    projects = _make_projects("a")
+    daily = _make_daily(["2026-04-01"])
+    output = render_summary(projects, daily, skipped=5, days=30)
+    assert "5 messages skipped" in output
+
+def test_render_summary_no_skipped_note_when_zero():
+    projects = _make_projects("a")
+    daily = _make_daily(["2026-04-01"])
+    output = render_summary(projects, daily, skipped=0, days=30)
+    assert "skipped" not in output
