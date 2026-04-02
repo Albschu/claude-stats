@@ -1,0 +1,5 @@
+{
+  "name": "claude-stats",
+  "version": "1.0.0",
+  "description": "Show Claude Code token usage and estimated API cost broken down by project and timeline."
+}
