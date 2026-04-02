@@ -1,4 +1,6 @@
 import json
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -84,3 +86,69 @@ def fmt_tokens(n: int) -> str:
 
 def fmt_cost(c: float) -> str:
     return f"${c:.2f}"
+
+
+def aggregate_data(
+    claude_dir: Path,
+    home: Path | None = None,
+    days: int | None = None,
+) -> tuple[dict, dict, int]:
+    """Scan all session JSONL files and aggregate tokens by project and by date.
+
+    Returns:
+        projects: dict[dir_name -> usage_dict with keys input/output/cache_creation/cache_read/full_path/short_name]
+        daily:    dict[date_str -> usage_dict with keys input/output/cache_creation/cache_read]
+        skipped:  total count of messages that had no timestamp
+    """
+    if home is None:
+        home = Path.home()
+
+    cutoff = None
+    if days is not None:
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(days=days)
+
+    projects: dict = defaultdict(lambda: {
+        "input": 0, "output": 0, "cache_creation": 0, "cache_read": 0,
+        "full_path": "", "short_name": "",
+    })
+    daily: dict = defaultdict(lambda: {"input": 0, "output": 0, "cache_creation": 0, "cache_read": 0})
+    total_skipped = 0
+
+    projects_dir = claude_dir / "projects"
+    if not projects_dir.exists():
+        return {}, {}, 0
+
+    for project_dir in projects_dir.iterdir():
+        if not project_dir.is_dir():
+            continue
+        full_path, short_name = extract_project_name(project_dir.name, home)
+        for session_file in project_dir.glob("*.jsonl"):
+            entries, skipped = parse_session_file(session_file)
+            total_skipped += skipped
+            for timestamp_str, usage in entries:
+                try:
+                    ts = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                except ValueError:
+                    total_skipped += 1
+                    continue
+                if cutoff and ts < cutoff:
+                    continue
+                date_key = ts.strftime("%Y-%m-%d")
+                input_tok = usage.get("input_tokens", 0) or 0
+                output_tok = usage.get("output_tokens", 0) or 0
+                cache_create = usage.get("cache_creation_input_tokens", 0) or 0
+                cache_read = usage.get("cache_read_input_tokens", 0) or 0
+                projects[project_dir.name]["input"] += input_tok
+                projects[project_dir.name]["output"] += output_tok
+                projects[project_dir.name]["cache_creation"] += cache_create
+                projects[project_dir.name]["cache_read"] += cache_read
+                projects[project_dir.name]["full_path"] = full_path
+                projects[project_dir.name]["short_name"] = short_name
+                daily[date_key]["input"] += input_tok
+                daily[date_key]["output"] += output_tok
+                daily[date_key]["cache_creation"] += cache_create
+                daily[date_key]["cache_read"] += cache_read
+
+    # Filter out projects with zero tokens
+    projects = {k: v for k, v in projects.items() if total_tokens(v) > 0}
+    return dict(projects), dict(daily), total_skipped

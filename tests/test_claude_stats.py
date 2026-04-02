@@ -137,3 +137,80 @@ def test_fmt_cost():
 
 def test_fmt_cost_zero():
     assert fmt_cost(0.0) == "$0.00"
+
+
+from claude_stats import aggregate_data
+
+def _make_session(tmp_path, project_dir_name, filename, entries):
+    proj_dir = tmp_path / "projects" / project_dir_name
+    proj_dir.mkdir(parents=True, exist_ok=True)
+    f = proj_dir / filename
+    _write_jsonl(f, entries)
+    return f
+
+def _assistant_entry(timestamp, input_tok, output_tok, cache_create=0, cache_read=0):
+    return {
+        "type": "assistant",
+        "timestamp": timestamp,
+        "message": {
+            "role": "assistant",
+            "usage": {
+                "input_tokens": input_tok,
+                "output_tokens": output_tok,
+                "cache_creation_input_tokens": cache_create,
+                "cache_read_input_tokens": cache_read,
+            }
+        }
+    }
+
+def test_aggregate_sums_by_project(tmp_path):
+    home = tmp_path / "home" / "user"
+    home.mkdir(parents=True)
+    claude_dir = tmp_path / ".claude"
+    _make_session(claude_dir, "-home-user-proj-alpha", "s1.jsonl", [
+        _assistant_entry("2026-04-01T10:00:00.000Z", 100, 50),
+        _assistant_entry("2026-04-01T11:00:00.000Z", 200, 80),
+    ])
+    projects, daily, skipped = aggregate_data(claude_dir, home=home)
+    assert "alpha" in [p["short_name"] for p in projects.values()]
+    alpha = next(p for p in projects.values() if p["short_name"] == "alpha")
+    assert alpha["input"] == 300
+    assert alpha["output"] == 130
+    assert skipped == 0
+
+def test_aggregate_sums_by_date(tmp_path):
+    home = tmp_path / "home" / "user"
+    home.mkdir(parents=True)
+    claude_dir = tmp_path / ".claude"
+    _make_session(claude_dir, "-home-user-proj-beta", "s1.jsonl", [
+        _assistant_entry("2026-04-01T10:00:00.000Z", 100, 50),
+        _assistant_entry("2026-04-02T10:00:00.000Z", 200, 80),
+    ])
+    projects, daily, skipped = aggregate_data(claude_dir, home=home)
+    assert "2026-04-01" in daily
+    assert "2026-04-02" in daily
+    assert daily["2026-04-01"]["input"] == 100
+    assert daily["2026-04-02"]["input"] == 200
+
+def test_aggregate_respects_days_cutoff(tmp_path):
+    home = tmp_path / "home" / "user"
+    home.mkdir(parents=True)
+    claude_dir = tmp_path / ".claude"
+    _make_session(claude_dir, "-home-user-proj-gamma", "s1.jsonl", [
+        _assistant_entry("2020-01-01T10:00:00.000Z", 999, 999),  # very old, should be excluded
+        _assistant_entry("2026-04-01T10:00:00.000Z", 100, 50),
+    ])
+    projects, daily, skipped = aggregate_data(claude_dir, home=home, days=30)
+    gamma = next((p for p in projects.values() if p["short_name"] == "gamma"), None)
+    assert gamma is not None
+    assert gamma["input"] == 100  # only the recent entry
+
+def test_aggregate_empty_dir(tmp_path):
+    home = tmp_path / "home" / "user"
+    home.mkdir(parents=True)
+    claude_dir = tmp_path / ".claude"
+    (claude_dir / "projects").mkdir(parents=True)
+    projects, daily, skipped = aggregate_data(claude_dir, home=home)
+    assert projects == {}
+    assert daily == {}
+    assert skipped == 0
