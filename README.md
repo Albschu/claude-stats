@@ -5,10 +5,11 @@ A Claude Code skill that shows your token usage and estimated API cost, broken d
 ## Install
 
 ```bash
-git clone <this-repo> ~/.claude/plugins/claude-stats
+git clone https://github.com/Albschu/claude-stats.git ~/.claude/plugins/claude-stats
+ln -sf ~/.claude/plugins/claude-stats/commands/claude-stats.md ~/.claude/commands/claude-stats.md
 ```
 
-Claude Code auto-discovers skills in `~/.claude/plugins/*/skills/`. Restart Claude Code after installing.
+Restart Claude Code after installing.
 
 ## Usage
 
