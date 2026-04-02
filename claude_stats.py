@@ -49,3 +49,38 @@ def parse_session_file(session_file: Path) -> tuple[list, int]:
     except (IOError, OSError):
         pass
     return results, skipped
+
+
+# Cost per million tokens (update when Anthropic changes pricing)
+COST_PER_MTOK = {
+    "input": 3.00,
+    "output": 15.00,
+    "cache_creation": 3.75,
+    "cache_read": 0.30,
+}
+
+
+def calc_cost(usage: dict) -> float:
+    """Calculate USD cost for a usage dict with keys: input, output, cache_creation, cache_read."""
+    return (
+        usage["input"] / 1e6 * COST_PER_MTOK["input"]
+        + usage["output"] / 1e6 * COST_PER_MTOK["output"]
+        + usage["cache_creation"] / 1e6 * COST_PER_MTOK["cache_creation"]
+        + usage["cache_read"] / 1e6 * COST_PER_MTOK["cache_read"]
+    )
+
+
+def total_tokens(usage: dict) -> int:
+    return usage["input"] + usage["output"] + usage["cache_creation"] + usage["cache_read"]
+
+
+def fmt_tokens(n: int) -> str:
+    if n >= 1_000_000:
+        return f"{n / 1e6:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1e3:.0f}K"
+    return str(n)
+
+
+def fmt_cost(c: float) -> str:
+    return f"${c:.2f}"

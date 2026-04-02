@@ -95,3 +95,45 @@ def test_parse_handles_missing_file():
     results, skipped = parse_session_file(Path("/nonexistent/file.jsonl"))
     assert results == []
     assert skipped == 0
+
+
+import pytest
+from claude_stats import calc_cost, total_tokens, fmt_tokens, fmt_cost
+
+def test_calc_cost_input_only():
+    usage = {"input": 1_000_000, "output": 0, "cache_creation": 0, "cache_read": 0}
+    assert calc_cost(usage) == pytest.approx(3.00)
+
+def test_calc_cost_output_only():
+    usage = {"input": 0, "output": 1_000_000, "cache_creation": 0, "cache_read": 0}
+    assert calc_cost(usage) == pytest.approx(15.00)
+
+def test_calc_cost_cache_creation():
+    usage = {"input": 0, "output": 0, "cache_creation": 1_000_000, "cache_read": 0}
+    assert calc_cost(usage) == pytest.approx(3.75)
+
+def test_calc_cost_cache_read():
+    usage = {"input": 0, "output": 0, "cache_creation": 0, "cache_read": 1_000_000}
+    assert calc_cost(usage) == pytest.approx(0.30)
+
+def test_total_tokens():
+    usage = {"input": 100, "output": 50, "cache_creation": 200, "cache_read": 10}
+    assert total_tokens(usage) == 360
+
+def test_fmt_tokens_millions():
+    assert fmt_tokens(1_500_000) == "1.5M"
+
+def test_fmt_tokens_thousands():
+    assert fmt_tokens(500_000) == "500K"
+
+def test_fmt_tokens_small():
+    assert fmt_tokens(999) == "999"
+
+def test_fmt_tokens_zero():
+    assert fmt_tokens(0) == "0"
+
+def test_fmt_cost():
+    assert fmt_cost(8.4) == "$8.40"
+
+def test_fmt_cost_zero():
+    assert fmt_cost(0.0) == "$0.00"
